@@ -1,5 +1,5 @@
 [package]
-org = "zedtest"
+org = "zed-pkg-test"
 name = "node-lib"
 version = "1.0.0"
 description = "A tiny library sourced via zed (complements npm)."
