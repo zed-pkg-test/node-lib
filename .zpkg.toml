@@ -1,0 +1,10 @@
+[package]
+org = "zedtest"
+name = "node-lib"
+version = "1.0.0"
+description = "A tiny library sourced via zed (complements npm)."
+license = "MIT"
+
+[package.repository]
+vcs = "git"
+url = "https://github.com/zed-pkg-test/node-lib"
