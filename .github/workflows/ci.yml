@@ -46,33 +46,28 @@ jobs:
           assert zed["repository"]["url"] == "https://github.com/zed-pkg-test/node-lib"
           PY
 
-      - name: Test API and packed contents in Node 22
+      - name: Test API and packed contents
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm \
-            --volume "$GITHUB_WORKSPACE:/work:ro" \
-            --workdir /work \
-            node:22-bookworm-slim \
-            sh -euc '
-              npm test
-              npm pack --dry-run --json > /tmp/pack.json
-              node - <<"NODE"
-              const fs = require("node:fs");
-              const report = JSON.parse(fs.readFileSync("/tmp/pack.json", "utf8"));
-              const files = report[0].files.map(({ path }) => path).sort();
-              for (const required of ["README.md", "package.json", "src/index.js"]) {
-                if (!files.includes(required)) {
-                  throw new Error(`required package file missing: ${required}; got ${JSON.stringify(files)}`);
-                }
-              }
-              const forbidden = files.filter((path) =>
-                /(^|\/)(?:\.github|\.git|\.zed|node_modules|test)(?:\/|$)/.test(path) ||
-                /(^|\/)\.zpkg\.toml$/.test(path) ||
-                /\.tgz$/.test(path)
-              );
-              if (forbidden.length > 0) {
-                throw new Error(`local/test state leaked into package: ${JSON.stringify(forbidden)}`);
-              }
-              NODE
-            '
+          node -e 'const major=Number(process.versions.node.split(".")[0]); if (major < 20) throw new Error(`Node 20+ required, got ${process.version}`)'
+          npm test
+          npm pack --dry-run --json > "$RUNNER_TEMP/pack.json"
+          PACK_REPORT="$RUNNER_TEMP/pack.json" node - <<'NODE'
+          const fs = require("node:fs");
+          const report = JSON.parse(fs.readFileSync(process.env.PACK_REPORT, "utf8"));
+          const files = report[0].files.map(({ path }) => path).sort();
+          for (const required of ["README.md", "package.json", "src/index.js"]) {
+            if (!files.includes(required)) {
+              throw new Error(`required package file missing: ${required}; got ${JSON.stringify(files)}`);
+            }
+          }
+          const forbidden = files.filter((path) =>
+            /(^|\/)(?:\.github|\.git|\.zed|node_modules|test)(?:\/|$)/.test(path) ||
+            /(^|\/)\.zpkg\.toml$/.test(path) ||
+            /\.tgz$/.test(path)
+          );
+          if (forbidden.length > 0) {
+            throw new Error(`local/test state leaked into package: ${JSON.stringify(forbidden)}`);
+          }
+          NODE
