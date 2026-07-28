@@ -1,0 +1,73 @@
+name: package CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Validate workflow
+        uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+        with:
+          args: .github/workflows/ci.yml
+
+      - name: Verify Zed and npm metadata agree
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import tomllib
+          from pathlib import Path
+
+          native = json.loads(Path("package.json").read_text())
+          with Path(".zpkg.toml").open("rb") as handle:
+              zed = tomllib.load(handle)["package"]
+
+          assert native["name"] == f"@{zed['org']}/{zed['name']}"
+          assert native["version"] == zed["version"]
+          assert native["license"] == zed["license"]
+          assert zed["repository"]["url"] == "https://github.com/zed-pkg-test/node-lib"
+          PY
+
+      - name: Test API and packed contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e 'const major=Number(process.versions.node.split(".")[0]); if (major < 20) throw new Error("Node 20+ required, got " + process.version)'
+          npm test
+          npm pack --dry-run --json > "$RUNNER_TEMP/pack.json"
+          PACK_REPORT="$RUNNER_TEMP/pack.json" node - <<'NODE'
+          const fs = require("node:fs");
+          const report = JSON.parse(fs.readFileSync(process.env.PACK_REPORT, "utf8"));
+          const files = report[0].files.map(({ path }) => path).sort();
+          for (const required of ["README.md", "package.json", "src/index.js"]) {
+            if (!files.includes(required)) {
+              throw new Error(`required package file missing: ${required}; got ${JSON.stringify(files)}`);
+            }
+          }
+          const forbidden = files.filter((path) =>
+            /(^|\/)(?:\.github|\.git|\.zed|node_modules|test)(?:\/|$)/.test(path) ||
+            /(^|\/)\.zpkg\.toml$/.test(path) ||
+            /\.tgz$/.test(path)
+          );
+          if (forbidden.length > 0) {
+            throw new Error(`local/test state leaked into package: ${JSON.stringify(forbidden)}`);
+          }
+          NODE
