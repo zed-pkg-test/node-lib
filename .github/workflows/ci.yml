@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node -e 'const major=Number(process.versions.node.split(".")[0]); if (major < 20) throw new Error(`Node 20+ required, got ${process.version}`)'
+          node -e 'const major=Number(process.versions.node.split(".")[0]); if (major < 20) throw new Error("Node 20+ required, got " + process.version)'
           npm test
           npm pack --dry-run --json > "$RUNNER_TEMP/pack.json"
           PACK_REPORT="$RUNNER_TEMP/pack.json" node - <<'NODE'
