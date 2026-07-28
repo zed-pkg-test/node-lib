@@ -1,1 +1,15 @@
-{ "name": "@zed-pkg-test/node-lib", "version": "1.0.0", "main": "src/index.js", "license": "MIT" }
+{
+  "name": "@zed-pkg-test/node-lib",
+  "version": "1.0.0",
+  "description": "A tiny library sourced via zed for interoperability tests.",
+  "main": "src/index.js",
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "pack:check": "npm pack --dry-run --json"
+  },
+  "license": "MIT"
+}
