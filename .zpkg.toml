@@ -8,3 +8,6 @@ license = "MIT"
 [package.repository]
 vcs = "git"
 url = "https://github.com/zed-pkg-test/node-lib"
+
+[publish]
+smoke_test = "node -e 'const p=require(process.env.ZED_PKG_TEST_TARGET);if(p.greet(\"r2g\")!==\"hello r2g from @zed-pkg-test/node-lib\")process.exit(1)'"
